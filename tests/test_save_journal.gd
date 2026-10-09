@@ -60,6 +60,20 @@ func _ready() -> void:
 	check(discoveries == 2, "load does not replay discoveries")
 	Journal.discover("unsaved")
 	check(GameState.load_game() and not Journal.has("unsaved"), "load replaces rather than merges")
+	# Exercise New Game immediately after a successful populated disk load.
+	write_save({"version": 2, "scene": "res://scenes/lamp_room.tscn",
+		"flags": flags, "journal_entries": ["log_01", "log_02"]})
+	check(GameState.load_game(), "new game baseline loads")
+	check(Journal.entries() == ["log_01", "log_02"], "new game baseline journal populated")
+	check(GameState.flags == JSON.parse_string(JSON.stringify(flags)), "new game baseline flags populated")
+	check(GameState.current_scene == "res://scenes/lamp_room.tscn", "new game baseline nondefault scene")
+	var saved_before_reset := FileAccess.get_file_as_string(GameState.SAVE_PATH)
+	GameState.new_game()
+	check(Journal.entries().is_empty(), "new game after load clears journal")
+	check(GameState.flags.is_empty(), "new game after load clears flags")
+	check(GameState.current_scene == "res://scenes/game.tscn", "new game after load restores default scene")
+	check(FileAccess.get_file_as_string(GameState.SAVE_PATH) == saved_before_reset, "new game leaves disk save unchanged")
+	print("New Game after populated load: journal=%s flags=%s scene=%s" % [JSON.stringify(Journal.entries()), JSON.stringify(GameState.flags), GameState.current_scene])
 	var replacement_cases := {
 		"empty_v2": {"version": 2, "journal_entries": []},
 		"legacy_v1": {"version": 1},

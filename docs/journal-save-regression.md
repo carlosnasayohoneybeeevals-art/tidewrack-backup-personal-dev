@@ -72,6 +72,20 @@ without clearing live entries. Main Menu and Quit do not autosave.
 **Coverage:** Automated replacement, repeated load, New Game reset, and disk-only
 deletion. Manually check New Game → Main Menu → Continue and quit behavior.
 
+**New Game after loaded-save verification (Godot 4.3, 2026-10-09):** Load a
+version 2 fixture with `["log_01", "log_02"]`, populated flags (including false
+and nested values), and `res://scenes/lamp_room.tscn`. Assert all loaded values
+before calling `GameState.new_game()` without an intervening clear. Observed:
+
+```text
+journal=[] flags={} scene=res://scenes/game.tscn
+```
+
+All eight assertions passed: successful load, three populated-state checks,
+three reset-state checks, and an unchanged on-disk save. The full suite returned
+zero failures and exit code 0. This verifies the New Game state-reset API;
+manual title-button/scene-transition coverage remains a separate check.
+
 **Sequential-load verification (Godot 4.3, 2026-10-09):** For each case, first
 load a save containing `["log_01", "log_02"]`, then load the second fixture
 without New Game or clearing state in between:

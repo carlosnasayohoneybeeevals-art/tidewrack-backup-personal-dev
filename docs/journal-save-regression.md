@@ -35,6 +35,28 @@ notifications. Scene-local state is rebuilt.
 scene-path restoration, and separate-process persistence. Manually verify the
 actual title-menu transition; lamp-room gameplay remains unfinished.
 
+**Separate-process result (Godot 4.3, 2026-10-09):** Writer PID 381 exited
+successfully before reader PID 397 started. The reader asserted empty initial
+journal/flags and the default scene before loading. The saved JSON was:
+
+```json
+{
+  "flags": {"radioed_tom": true, "skeptic": true, "trusted_edith": false},
+  "journal_entries": ["log_01", "log_02"],
+  "scene": "res://scenes/lamp_room.tscn",
+  "version": 2
+}
+```
+
+```text
+Writer PID=381 failures=0
+Reader PID=397 load=true journal=true scene=true flags=true failures=0
+```
+
+Both processes exited 0. The reader checked exact ordered journal IDs, the
+nondefault saved scene, and the complete flag dictionary including explicit
+false. The complete regression suite also finished with zero failures.
+
 ## 2. Older saves load and upgrade without losing story flags
 
 **Setup:** Create disposable version 1 and unversioned saves containing valid

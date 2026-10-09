@@ -24,14 +24,29 @@ func _ready() -> void:
 	Journal.entry_added.connect(func(_id): discoveries += 1)
 	if "--write-fixture" in OS.get_cmdline_user_args():
 		GameState.new_game()
-		Journal.discover("cold_start")
+		Journal.discover("log_01")
+		Journal.discover("log_02")
+		GameState.current_scene = "res://scenes/lamp_room.tscn"
 		GameState.set_flag("trusted_edith", false)
+		GameState.set_flag("skeptic", true)
+		GameState.set_flag("radioed_tom", true)
 		check(GameState.save_game(), "cold save")
+		print("Writer PID=%d failures=%d" % [OS.get_process_id(), failures])
+		print("Saved JSON:\n" + FileAccess.get_file_as_string(GameState.SAVE_PATH))
 		get_tree().quit(failures)
 		return
 	if "--read-fixture" in OS.get_cmdline_user_args():
-		check(GameState.load_game(), "cold load")
-		check(Journal.has("cold_start") and GameState.get_flag("trusted_edith", true) == false, "cold process restoration")
+		check(Journal.entries().is_empty() and GameState.flags.is_empty(), "reader starts with empty memory")
+		check(GameState.current_scene == "res://scenes/game.tscn", "reader starts in default scene")
+		var loaded := GameState.load_game()
+		var ids_match: bool = Journal.entries() == ["log_01", "log_02"]
+		var scene_matches: bool = GameState.current_scene == "res://scenes/lamp_room.tscn"
+		var flags_match: bool = GameState.flags == {"trusted_edith": false, "skeptic": true, "radioed_tom": true}
+		check(loaded, "cold load")
+		check(ids_match, "cold process journal IDs and order")
+		check(scene_matches, "cold process scene restoration")
+		check(flags_match, "cold process exact flag restoration")
+		print("Reader PID=%d load=%s journal=%s scene=%s flags=%s failures=%d" % [OS.get_process_id(), loaded, ids_match, scene_matches, flags_match, failures])
 		get_tree().quit(failures)
 		return
 	GameState.delete_save()

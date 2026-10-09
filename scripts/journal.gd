@@ -24,13 +24,16 @@ func has(id: String) -> bool:
 	return id in _entries
 
 
-## Invalid items are ignored; unknown IDs are retained for content compatibility.
+## Any invalid item clears the entire restored journal; valid unknown IDs survive.
 ## IDs are opaque: do not trim or rename valid IDs on load.
 func restore(value: Variant, notify: bool = true) -> void:
 	var restored: Array[String] = []
 	if value is Array:
 		for id in value:
-			if id is String and not id.strip_edges().is_empty() and id not in restored:
+			if not id is String or id.strip_edges().is_empty():
+				restored.clear()
+				break
+			if id not in restored:
 				restored.append(id)
 	_entries = restored
 	if notify:

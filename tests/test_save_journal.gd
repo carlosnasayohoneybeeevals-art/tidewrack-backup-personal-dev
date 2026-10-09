@@ -73,6 +73,15 @@ func _ready() -> void:
 		"object": {"entry": true},
 		"boolean": true,
 		"invalid_items_only": [null, 7, false, {}, [], "", "   "],
+		"mixed_number": ["log_01", 42],
+		"invalid_first": [42, "log_01"],
+		"invalid_middle": ["log_01", 42, "log_02"],
+		"mixed_null": ["log_01", null],
+		"mixed_boolean": ["log_01", true],
+		"mixed_object": ["log_01", {}],
+		"mixed_array": ["log_01", []],
+		"mixed_blank": ["log_01", ""],
+		"mixed_whitespace": ["log_01", "   "],
 	}
 	for saved_scene in ["res://scenes/game.tscn", "res://scenes/lamp_room.tscn"]:
 		for label in malformed_cases:
@@ -93,11 +102,11 @@ func _ready() -> void:
 			check(scene_preserved, "%s: saved scene restored" % label)
 			check(flags_preserved, "%s: saved flags restored" % label)
 			print("Malformed journal [%s / %s]: load=%s empty=%s scene=%s flags=%s" % [label, saved_scene.get_file(), loaded, empty, scene_preserved, flags_preserved])
-	# Mixed arrays retain valid IDs under the documented sanitization policy.
-	write_save({"version": 2, "journal_entries": ["b", "a", "b", null, 7, "", " ", "unknown"], "flags": flags})
-	check(GameState.load_game(), "mixed journal loads")
-	check(GameState.flags == JSON.parse_string(JSON.stringify(flags)), "mixed journal preserves flags")
-	check(Journal.entries() == ["b", "a", "unknown"], "mixed journal retains valid IDs")
+	# Fully valid arrays still deduplicate and retain unknown IDs in order.
+	write_save({"version": 2, "journal_entries": ["b", "a", "b", "unknown"], "flags": flags})
+	check(GameState.load_game(), "valid journal loads")
+	check(GameState.flags == JSON.parse_string(JSON.stringify(flags)), "valid journal preserves flags")
+	check(Journal.entries() == ["b", "a", "unknown"], "valid journal deduplicates and retains unknown IDs")
 	for bad in [null, [], {"version": 3}, {"version": "2"}, {"version": 1.5}, {"scene": 42}, {"scene": "res://scenes/main_menu.tscn"}]:
 		var before := Journal.entries()
 		write_save(bad)

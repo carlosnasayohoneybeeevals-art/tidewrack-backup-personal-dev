@@ -27,8 +27,9 @@ GameState is supported, but it is not yet a playable Continue destination.
 - Missing version is treated as v1. v1 loads flags and scene, replaces the
   journal with an empty list, and upgrades only on the next explicit Save.
   No retroactive discoveries are guessed from skeptic/believer/trusted_edith.
-- Missing/non-array journal data becomes empty. Non-string/blank items are
-  dropped, duplicates retain their first position, and unknown IDs are kept.
+- Missing/non-array journal data becomes empty. Any non-string/blank item
+  makes the entire journal empty, even in a mixed array. Fully valid arrays
+  retain the first position of duplicate IDs and keep unknown IDs.
   Valid IDs are opaque and are not renamed or whitespace-normalized.
 - Load replaces rather than merges journal state. Restoration/reset emits
   entries_changed, never entry_added. List access returns a copy.

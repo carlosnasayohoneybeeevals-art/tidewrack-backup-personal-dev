@@ -142,19 +142,19 @@ power-loss safety or provide backup recovery.
 **Malformed journal subcase:** Keep valid story flags and load version 2 fixtures
 with missing, null, scalar, or object journal fields, then the array
 `["b", "a", "b", null, 7, "", " ", "unknown"]`. Non-array fields become empty;
-the array becomes `["b", "a", "unknown"]`. Unknown IDs remain unchanged and
-flags are unaffected. Restore emits no entry-added events. Empty/whitespace-only
+the entire array becomes `[]`. Any invalid item rejects the whole journal,
+including `["log_01", 42]`; load still succeeds with saved scene and flags
+intact. Fully valid arrays preserve unknown IDs and deduplicate in order. Restore emits no entry-added events. Empty/whitespace-only
 discoveries are ignored, and mutating the array returned by `Journal.entries()`
 does not alter stored state. These normalization and defensive-copy checks are
 automated; also resave/load the normalized fixture when changing sanitization.
 
-**Verified malformed-journal results (Godot 4.3, 2026-10-09):** The automated
-suite now checks missing, null, number, string, object, boolean, and
-invalid-items-only journal data against both `game.tscn` and `lamp_room.tscn`.
-All 14 fixtures returned `load=true`, `empty=true`, `scene=true`, and
-`flags=true` (56 assertions). Each starts with a stale entry, different live
-flags, and the other scene, proving the saved scene/flags are restored rather
-than merely left unchanged. Saved flags include explicit false values and
-nested JSON data. The complete suite finished with zero failures and exit code
-0. Mixed arrays remain a separate check: valid IDs are retained under the
-existing normalization policy, rather than clearing the whole array.
+**Verified results (Godot 4.3, 2026-10-09):** All 32 malformed-journal fixtures
+(16 shapes across both saved scenes) passed all four assertions: load succeeds,
+journal is empty, saved scene is restored, and saved flags are restored. This
+includes `["log_01", 42]`, invalid elements first/middle/last, and mixed arrays
+containing null, boolean, object, array, empty-string, or whitespace items.
+The fixtures begin with stale live state. All 128 targeted assertions passed;
+the complete suite, including separate-process persistence, finished with zero
+failures and exit code 0. Fully valid arrays still preserve unknown IDs and
+collapse duplicates in order. Both dialogue graphs also passed validation.

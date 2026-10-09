@@ -62,8 +62,9 @@ empty journal; missing scene defaults to the ground floor. No discoveries are
 inferred from story flags. Loading does not rewrite the file; the next Save
 upgrades it to version 2. Missing or non-dictionary flags retain the existing
 empty-dictionary fallback. Missing or non-array journal data becomes empty;
-non-string and blank IDs are discarded, duplicates collapse in first-seen
-order, and unknown nonblank IDs are retained unchanged.
+any non-string or blank ID makes the entire journal empty, including mixed
+arrays such as `["log_01", 42]`. Fully valid arrays collapse duplicates in
+first-seen order and retain unknown nonblank IDs unchanged.
 
 Invalid JSON, unsupported versions, or invalid scene paths fail before changing
 live state. Continue is enabled by file existence, so a corrupt save can still

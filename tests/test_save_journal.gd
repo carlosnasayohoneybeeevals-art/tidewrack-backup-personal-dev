@@ -196,6 +196,7 @@ func _ready() -> void:
 	GameState.delete_save()
 	check(not GameState.has_save() and Journal.has("test_entry"), "delete affects disk only")
 	_test_duplicate_round_trip()
+	_test_failure_preservation()
 	GameState.delete_save()
 	print("Save/journal checks: %d failure(s)" % failures)
 	get_tree().quit(1 if failures else 0)
@@ -228,3 +229,54 @@ func _test_duplicate_round_trip() -> void:
 	check(GameState.load_game() and Journal.entries() == ["duplicate_test"], "rediscovery: reload stays unique")
 	check(discoveries - signals_before == 1, "rediscovery: final load does not emit")
 	print("Duplicate rediscovery x3 and resave/reload: entries=%s signals=%d disk=%s" % [JSON.stringify(Journal.entries()), discoveries - signals_before, JSON.stringify(saved["journal_entries"])])
+
+
+func _live_snapshot() -> Dictionary:
+	return {"scene": GameState.current_scene, "flags": GameState.flags.duplicate(true), "journal": Journal.entries()}
+
+
+func _test_failure_preservation() -> void:
+	GameState.new_game()
+	GameState.current_scene = "res://scenes/lamp_room.tscn"
+	GameState.flags = {"trusted_edith": false, "disk_only": true}
+	Journal.discover("disk_entry")
+	check(GameState.save_game(), "failure fixture: good save")
+	var disk_before := FileAccess.get_file_as_bytes(GameState.SAVE_PATH)
+	var saved_state := _live_snapshot()
+	GameState.current_scene = "res://scenes/game.tscn"
+	GameState.flags = {"trusted_edith": true, "live_only": {"value": "unsaved"}}
+	Journal.restore(["live_entry", "unsaved_entry"])
+	var live_before := _live_snapshot()
+	var signals_before := discoveries
+	check(DirAccess.make_dir_absolute(GameState.TEMP_PATH) == OK, "failure fixture: block temporary file")
+	for attempt in range(2):
+		var rejected := not GameState.save_game()
+		var disk_unchanged := FileAccess.get_file_as_bytes(GameState.SAVE_PATH) == disk_before
+		var live_unchanged := _live_snapshot() == live_before
+		check(rejected, "failed save: false return")
+		check(disk_unchanged, "failed save: previous disk bytes unchanged")
+		check(live_unchanged, "failed save: all live state unchanged")
+		check(discoveries == signals_before, "failed save: no discovery event")
+		print("Failed save attempt %d: rejected=%s disk_unchanged=%s live_unchanged=%s" % [attempt + 1, rejected, disk_unchanged, live_unchanged])
+	check(DirAccess.remove_absolute(GameState.TEMP_PATH) == OK, "failure fixture: unblock temporary file")
+	check(GameState.load_game(), "failed save: previous disk save still loads")
+	check(_live_snapshot() == saved_state, "failed save: original disk state restored")
+	# Corruption is injected by the test, not by load_game. Rejection must leave
+	# those file bytes untouched and preserve the pre-load live session.
+	GameState.current_scene = live_before["scene"]
+	GameState.flags = live_before["flags"].duplicate(true)
+	Journal.restore(live_before["journal"])
+	var corrupt_cases := {"empty": "", "truncated": '{"version":', "garbage": "not JSON", "non_object": "[]"}
+	for label in corrupt_cases:
+		var file := FileAccess.open(GameState.SAVE_PATH, FileAccess.WRITE)
+		file.store_string(corrupt_cases[label])
+		file.close()
+		var corrupt_before := FileAccess.get_file_as_bytes(GameState.SAVE_PATH)
+		var rejected := not GameState.load_game()
+		var disk_unchanged := FileAccess.get_file_as_bytes(GameState.SAVE_PATH) == corrupt_before
+		var live_unchanged := _live_snapshot() == live_before
+		check(rejected, "%s corrupt load: false return" % label)
+		check(disk_unchanged, "%s corrupt load: file not rewritten" % label)
+		check(live_unchanged, "%s corrupt load: flags scene journal unchanged" % label)
+		check(discoveries == signals_before, "%s corrupt load: no discovery event" % label)
+		print("Corrupt load [%s]: rejected=%s file_unchanged=%s live_unchanged=%s" % [label, rejected, disk_unchanged, live_unchanged])

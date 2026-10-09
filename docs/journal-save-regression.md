@@ -198,10 +198,37 @@ the old disk save remains loadable. No truncated replacement is accepted as a
 successful save.
 
 **Coverage:** Automated missing/corrupt/version/scene rejection and blocked-open
-preservation of the previous save. Manual gates: verify live scene preservation,
+preservation of the previous save and live scene/flags/journal. Manual gates:
 menu behavior, full disk, permission denial, replacement failure, interruption,
 and leftover temporary files on each shipping OS. Headless tests do not establish
 power-loss safety or provide backup recovery.
+
+**Failure-preservation results (Godot 4.3, 2026-10-09):**
+`_test_failure_preservation()` creates a known-good disk save, then gives the
+live session different scene, flags, and journal values. It blocks the temporary
+save path with a directory and attempts Save twice. Both attempts return false,
+leave the previous save byte-for-byte unchanged, preserve all live state, and
+emit no discovery event. After removing the obstruction, the previous save
+loads successfully and exactly restores its original scene, flags, and journal.
+
+The test then injects each corrupt file below and verifies failed loads do not
+change the live scene/flags/journal, rewrite the file, or emit discovery events:
+
+| Failure | Returns false | Disk bytes unchanged | Live state unchanged |
+| --- | --- | --- | --- |
+| Blocked temporary-file open, attempt 1 | PASS | PASS | PASS |
+| Blocked temporary-file open, attempt 2 | PASS | PASS | PASS |
+| Empty file | PASS | PASS | PASS |
+| Truncated JSON | PASS | PASS | PASS |
+| Non-JSON text | PASS | PASS | PASS |
+| JSON array instead of a save object | PASS | PASS | PASS |
+
+All checks passed; the complete suite finished with zero failures and exit code
+0. For corrupt-load cases, “disk bytes unchanged” means the injected corrupt
+file is untouched by loading. It does not mean a previously valid save can be
+recovered after external corruption; there is no backup recovery. Save-failure
+coverage here exercises failure to open the temporary file, not mid-write,
+rename, full-disk, or power-loss failures, which remain shipping-OS test gates.
 
 **Malformed journal subcase:** Keep valid story flags and load version 2 fixtures
 with missing, null, scalar, or object journal fields, then the array

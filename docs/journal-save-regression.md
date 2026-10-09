@@ -72,29 +72,50 @@ without clearing live entries. Main Menu and Quit do not autosave.
 **Coverage:** Automated replacement, repeated load, New Game reset, and disk-only
 deletion. Manually check New Game → Main Menu → Continue and quit behavior.
 
-## 4. Duplicate and malformed journal data cannot corrupt story state
+## 4. Duplicate discovery stores exactly one entry
 
-**Setup:** Discover the same ID twice, a second ID, and empty/whitespace-only
-IDs. Separately, prepare version 2 saves with missing, null, scalar, or object
-journal fields and an array such as `["b", "a", "b", null, 7, "", " ", "unknown"]`.
-Keep valid story flags in every save.
+**Setup:** Start with an empty journal and count `Journal.entry_added` emissions.
+Use a disposable save and the single ID `duplicate_test`.
 
-**Steps:** Inspect entries and notifications after discovery. Mutate the array
-returned by `Journal.entries()`. Load each fixture and save/load the normalized
-result.
+**Steps:** Call `Journal.discover("duplicate_test")` three times. Assert the
+journal contains exactly one entry, then Save and inspect the parsed JSON.
+Reset in-memory state, load the save, and discover the same ID once more.
+Save again and inspect the JSON a second time.
 
-**Expected:** Discovery retains unique nonblank IDs in first-seen order and
-emits entry-added only for new entries. Mutating the returned array does not
-change the journal. Non-array journal data becomes empty; the example array
-becomes `["b", "a", "unknown"]`. Unknown IDs are preserved, and valid IDs are
-not trimmed or renamed. Story flags are unaffected. Restore does not replay
-discovery notifications.
+**Expected:** Each in-memory check equals `["duplicate_test"]` with size `1`.
+Both saved `journal_entries` arrays equal `["duplicate_test"]` with size `1`.
+The first three calls emit entry-added only once; neither loading nor discovering
+that already-restored ID emits another entry-added event. Repetition must never
+increase the number of stored entries.
 
-**Coverage:** Automated deduplication, blank IDs, defensive copies, malformed
-journal shapes, unknown IDs, and flag preservation. Manually verify the
-normalized fixtures through an additional resave cycle if changing sanitization.
+Use these explicit assertions in the isolated harness:
 
-## 5. Rejected loads and failed writes preserve recoverable state
+```gdscript
+GameState.new_game()
+for repeat in range(3):
+    Journal.discover("duplicate_test")
+assert(Journal.entries() == ["duplicate_test"])
+assert(Journal.entries().size() == 1)
+assert(GameState.save_game())
+var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+assert(saved["journal_entries"] == ["duplicate_test"])
+assert(saved["journal_entries"].size() == 1)
+GameState.new_game()
+assert(GameState.load_game())
+Journal.discover("duplicate_test")
+assert(Journal.entries() == ["duplicate_test"])
+assert(Journal.entries().size() == 1)
+assert(GameState.save_game())
+saved = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+assert(saved["journal_entries"] == ["duplicate_test"])
+assert(saved["journal_entries"].size() == 1)
+```
+
+**Coverage:** The existing suite checks repeated discovery, notification counts,
+and an ordered save/load round trip. The assertions above define the dedicated
+single-ID disk check; run them in the isolated harness when verifying this case.
+
+## 5. Malformed data, rejected loads, and failed writes preserve state
 
 **Setup:** Keep a known-good saved session and a distinct live state. Use
 separate disposable fixtures for missing files, truncated JSON, non-object
@@ -117,3 +138,12 @@ preservation of the previous save. Manual gates: verify live scene preservation,
 menu behavior, full disk, permission denial, replacement failure, interruption,
 and leftover temporary files on each shipping OS. Headless tests do not establish
 power-loss safety or provide backup recovery.
+
+**Malformed journal subcase:** Keep valid story flags and load version 2 fixtures
+with missing, null, scalar, or object journal fields, then the array
+`["b", "a", "b", null, 7, "", " ", "unknown"]`. Non-array fields become empty;
+the array becomes `["b", "a", "unknown"]`. Unknown IDs remain unchanged and
+flags are unaffected. Restore emits no entry-added events. Empty/whitespace-only
+discoveries are ignored, and mutating the array returned by `Journal.entries()`
+does not alter stored state. These normalization and defensive-copy checks are
+automated; also resave/load the normalized fixture when changing sanitization.

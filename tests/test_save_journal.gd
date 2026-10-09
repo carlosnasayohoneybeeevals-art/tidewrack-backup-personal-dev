@@ -195,5 +195,36 @@ func _ready() -> void:
 	check(GameState.load_game() and not Journal.has("not_written"), "write failure preserves disk save")
 	GameState.delete_save()
 	check(not GameState.has_save() and Journal.has("test_entry"), "delete affects disk only")
+	_test_duplicate_round_trip()
+	GameState.delete_save()
 	print("Save/journal checks: %d failure(s)" % failures)
 	get_tree().quit(1 if failures else 0)
+
+
+func _test_duplicate_round_trip() -> void:
+	GameState.new_game()
+	var signals_before := discoveries
+	for repeat in range(3):
+		Journal.discover("duplicate_test")
+	check(Journal.entries() == ["duplicate_test"], "duplicate discovery: exactly one entry")
+	check(discoveries - signals_before == 1, "duplicate discovery: one signal")
+	check(GameState.save_game(), "duplicate discovery: save")
+	var saved: Dictionary = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+	check(saved["journal_entries"] == ["duplicate_test"], "duplicate discovery: one disk entry")
+	print("Duplicate first discovery x3: entries=%s signals=%d disk=%s" % [JSON.stringify(Journal.entries()), discoveries - signals_before, JSON.stringify(saved["journal_entries"])])
+	GameState.new_game()
+	check(Journal.entries().is_empty(), "duplicate load: clear memory first")
+	check(GameState.load_game(), "duplicate load: succeeds")
+	check(Journal.entries() == ["duplicate_test"], "duplicate load: one entry restored")
+	check(discoveries - signals_before == 1, "duplicate load: no discovery signal replay")
+	print("Duplicate after load: entries=%s signals=%d" % [JSON.stringify(Journal.entries()), discoveries - signals_before])
+	for repeat in range(3):
+		Journal.discover("duplicate_test")
+	check(Journal.entries() == ["duplicate_test"], "rediscovery: exactly one entry")
+	check(discoveries - signals_before == 1, "rediscovery: no duplicate discovery signal")
+	check(GameState.save_game(), "rediscovery: resave")
+	saved = JSON.parse_string(FileAccess.get_file_as_string(GameState.SAVE_PATH))
+	check(saved["journal_entries"] == ["duplicate_test"], "rediscovery: one disk entry")
+	check(GameState.load_game() and Journal.entries() == ["duplicate_test"], "rediscovery: reload stays unique")
+	check(discoveries - signals_before == 1, "rediscovery: final load does not emit")
+	print("Duplicate rediscovery x3 and resave/reload: entries=%s signals=%d disk=%s" % [JSON.stringify(Journal.entries()), discoveries - signals_before, JSON.stringify(saved["journal_entries"])])

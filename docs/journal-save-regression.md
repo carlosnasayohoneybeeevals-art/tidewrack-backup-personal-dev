@@ -163,9 +163,21 @@ assert(saved["journal_entries"] == ["duplicate_test"])
 assert(saved["journal_entries"].size() == 1)
 ```
 
-**Coverage:** The existing suite checks repeated discovery, notification counts,
-and an ordered save/load round trip. The assertions above define the dedicated
-single-ID disk check; run them in the isolated harness when verifying this case.
+**Coverage and result (Godot 4.3, 2026-10-09):** The automated
+`_test_duplicate_round_trip()` now performs the dedicated single-ID disk and
+signal checks. It discovers the ID three times, saves, clears memory, loads,
+rediscovers the ID three times, then saves and loads again. All 14 assertions
+passed, including exact single-entry arrays on disk before and after reload.
+The `entry_added` count is measured relative to the start of this case:
+
+| Stage | Journal | Total entry_added emissions in this case |
+| --- | --- | --- |
+| First discovery repeated three times | `["duplicate_test"]` | 1 |
+| After save, memory reset, and load | `["duplicate_test"]` | 1 |
+| After three rediscoveries and resave/reload | `["duplicate_test"]` | 1 |
+
+Only the initial discovery emits; restoration and rediscovery emit no duplicate
+discovery signal. The complete suite returned zero failures and exit code 0.
 
 ## 5. Malformed data, rejected loads, and failed writes preserve state
 

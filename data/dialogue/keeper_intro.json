@@ -5,7 +5,6 @@
 		"next": "logbook_2"
 	},
 	"logbook_2": {
-		"journal_entry": "entry_keeper_log",
 		"speaker": "Edith Vane",
 		"text": "\"Third night of fog. There is a light off the north rocks that answers mine. It is not the buoy. It is not a ship. It keeps my rhythm — three flashes, then dark — and I have told no one because there is no one out there to tell.\"",
 		"next": "logbook_choice1"

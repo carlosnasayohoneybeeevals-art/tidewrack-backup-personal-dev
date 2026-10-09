@@ -54,7 +54,6 @@ func choose(index: int) -> void:
 		return
 	var choice: Dictionary = choices[index]
 	_apply_flags(choice.get("set_flag", {}))
-	_apply_journal(choice)
 	var next: Variant = choice.get("next", null)
 	if next == null:
 		_finish()
@@ -70,7 +69,6 @@ func _goto(id: String) -> void:
 	_current_id = id
 	var node: Dictionary = _graph[id]
 	_apply_flags(node.get("set_flag", {}))
-	_apply_journal(node)
 	line_shown.emit(
 		str(node.get("speaker", "")),
 		str(node.get("text", "")),
@@ -101,10 +99,3 @@ func _load_graph(path: String) -> Dictionary:
 		push_error("DialogueManager: dialogue file is not a JSON object: %s" % path)
 		return {}
 	return parsed
-
-
-## Explicit discovery metadata keeps journal IDs separate from story flags.
-func _apply_journal(node: Dictionary) -> void:
-	var id: Variant = node.get("journal_entry", null)
-	if id is String:
-		Journal.discover(id)

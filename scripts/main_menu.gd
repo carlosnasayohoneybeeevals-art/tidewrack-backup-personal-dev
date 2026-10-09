@@ -82,21 +82,7 @@ func _on_new_game() -> void:
 
 func _on_continue() -> void:
 	if GameState.load_game():
-		var error := get_tree().change_scene_to_file(GameState.current_scene)
-		if error != OK:
-			_show_continue_error()
-	else:
-		_show_continue_error()
-
-
-func _show_continue_error() -> void:
-	var dialog := AcceptDialog.new()
-	dialog.title = "Unable to continue"
-	dialog.dialog_text = "The save could not be loaded. It has not been overwritten."
-	dialog.confirmed.connect(dialog.queue_free)
-	dialog.canceled.connect(dialog.queue_free)
-	add_child(dialog)
-	dialog.popup_centered()
+		get_tree().change_scene_to_file(GameState.current_scene)
 
 
 func _on_settings() -> void:

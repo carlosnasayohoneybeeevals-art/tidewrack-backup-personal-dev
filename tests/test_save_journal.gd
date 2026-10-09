@@ -65,11 +65,39 @@ func _ready() -> void:
 		check(GameState.load_game(), "legacy migration")
 		check(GameState.flags == JSON.parse_string(JSON.stringify(flags)) and Journal.entries().is_empty(), "legacy flags and empty journal")
 		check(GameState.save_game() and GameState.load_game(), "legacy resave")
-	for bad in [null, 4, "entry", {}, ["b", "a", "b", null, 7, "", " ", "unknown"]]:
-		write_save({"version": 2, "journal_entries": bad, "flags": flags})
-		check(GameState.load_game(), "tolerant journal restore")
-		check(GameState.flags == JSON.parse_string(JSON.stringify(flags)), "bad journal cannot erase flags")
-		check(Journal.entries() == (["b", "a", "unknown"] if bad is Array else []), "journal sanitization")
+	var malformed_cases := {
+		"missing": null,
+		"null": null,
+		"number": 4,
+		"string": "entry",
+		"object": {"entry": true},
+		"boolean": true,
+		"invalid_items_only": [null, 7, false, {}, [], "", "   "],
+	}
+	for saved_scene in ["res://scenes/game.tscn", "res://scenes/lamp_room.tscn"]:
+		for label in malformed_cases:
+			# Seed different live values to prove loading replaces stale state.
+			GameState.flags = {"unsaved_only": true}
+			GameState.current_scene = "res://scenes/game.tscn" if saved_scene.ends_with("lamp_room.tscn") else "res://scenes/lamp_room.tscn"
+			Journal.restore(["stale_entry"])
+			var fixture := {"version": 2, "scene": saved_scene, "flags": flags}
+			if label != "missing":
+				fixture["journal_entries"] = malformed_cases[label]
+			write_save(fixture)
+			var loaded := GameState.load_game()
+			var empty := Journal.entries().is_empty()
+			var scene_preserved: bool = GameState.current_scene == saved_scene
+			var flags_preserved: bool = GameState.flags == JSON.parse_string(JSON.stringify(flags))
+			check(loaded, "%s: load succeeds" % label)
+			check(empty, "%s: journal empty" % label)
+			check(scene_preserved, "%s: saved scene restored" % label)
+			check(flags_preserved, "%s: saved flags restored" % label)
+			print("Malformed journal [%s / %s]: load=%s empty=%s scene=%s flags=%s" % [label, saved_scene.get_file(), loaded, empty, scene_preserved, flags_preserved])
+	# Mixed arrays retain valid IDs under the documented sanitization policy.
+	write_save({"version": 2, "journal_entries": ["b", "a", "b", null, 7, "", " ", "unknown"], "flags": flags})
+	check(GameState.load_game(), "mixed journal loads")
+	check(GameState.flags == JSON.parse_string(JSON.stringify(flags)), "mixed journal preserves flags")
+	check(Journal.entries() == ["b", "a", "unknown"], "mixed journal retains valid IDs")
 	for bad in [null, [], {"version": 3}, {"version": "2"}, {"version": 1.5}, {"scene": 42}, {"scene": "res://scenes/main_menu.tscn"}]:
 		var before := Journal.entries()
 		write_save(bad)

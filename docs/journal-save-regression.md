@@ -147,3 +147,14 @@ flags are unaffected. Restore emits no entry-added events. Empty/whitespace-only
 discoveries are ignored, and mutating the array returned by `Journal.entries()`
 does not alter stored state. These normalization and defensive-copy checks are
 automated; also resave/load the normalized fixture when changing sanitization.
+
+**Verified malformed-journal results (Godot 4.3, 2026-10-09):** The automated
+suite now checks missing, null, number, string, object, boolean, and
+invalid-items-only journal data against both `game.tscn` and `lamp_room.tscn`.
+All 14 fixtures returned `load=true`, `empty=true`, `scene=true`, and
+`flags=true` (56 assertions). Each starts with a stale entry, different live
+flags, and the other scene, proving the saved scene/flags are restored rather
+than merely left unchanged. Saved flags include explicit false values and
+nested JSON data. The complete suite finished with zero failures and exit code
+0. Mixed arrays remain a separate check: valid IDs are retained under the
+existing normalization policy, rather than clearing the whole array.

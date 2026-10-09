@@ -72,6 +72,22 @@ without clearing live entries. Main Menu and Quit do not autosave.
 **Coverage:** Automated replacement, repeated load, New Game reset, and disk-only
 deletion. Manually check New Game → Main Menu → Continue and quit behavior.
 
+**Sequential-load verification (Godot 4.3, 2026-10-09):** For each case, first
+load a save containing `["log_01", "log_02"]`, then load the second fixture
+without New Game or clearing state in between:
+
+| Second save | Journal after load | Result |
+| --- | --- | --- |
+| Version 2 with `journal_entries: []` | `[]` | PASS |
+| Legacy version 1 without journal | `[]` | PASS |
+| Unversioned legacy save without journal | `[]` | PASS |
+| Version 2 with `["log_03"]` | `["log_03"]` | PASS |
+
+Each case asserts successful loading, exact replacement, absence of both old
+IDs, replacement scene/flags, and the same result after another load. All 32
+assertions passed; the complete suite returned zero failures and exit code 0.
+Entries are replaced, never accumulated across these successful loads.
+
 ## 4. Duplicate discovery stores exactly one entry
 
 **Setup:** Start with an empty journal and count `Journal.entry_added` emissions.

@@ -60,6 +60,32 @@ func _ready() -> void:
 	check(discoveries == 2, "load does not replay discoveries")
 	Journal.discover("unsaved")
 	check(GameState.load_game() and not Journal.has("unsaved"), "load replaces rather than merges")
+	var replacement_cases := {
+		"empty_v2": {"version": 2, "journal_entries": []},
+		"legacy_v1": {"version": 1},
+		"unversioned": {},
+		"different_populated_v2": {"version": 2, "journal_entries": ["log_03"]},
+	}
+	for label in replacement_cases:
+		# No New Game/clear between these loads: each must replace the prior state.
+		write_save({"version": 2, "scene": "res://scenes/lamp_room.tscn",
+			"flags": {"old_flag": true}, "journal_entries": ["log_01", "log_02"]})
+		check(GameState.load_game(), "%s: populated save loads" % label)
+		check(Journal.entries() == ["log_01", "log_02"], "%s: populated baseline" % label)
+		var next_save: Dictionary = replacement_cases[label].duplicate(true)
+		next_save["scene"] = "res://scenes/game.tscn"
+		next_save["flags"] = {"trusted_edith": false}
+		write_save(next_save)
+		var expected: Array = ["log_03"] if label == "different_populated_v2" else []
+		var loaded := GameState.load_game()
+		var replaced: bool = Journal.entries() == expected
+		check(loaded, "%s: replacement save loads" % label)
+		check(replaced, "%s: journal replaced exactly" % label)
+		check(not Journal.has("log_01") and not Journal.has("log_02"), "%s: prior IDs absent" % label)
+		check(GameState.current_scene == "res://scenes/game.tscn", "%s: replacement scene" % label)
+		check(GameState.flags == {"trusted_edith": false}, "%s: replacement flags" % label)
+		check(GameState.load_game() and Journal.entries() == expected, "%s: repeated load does not accumulate" % label)
+		print("Sequential load [%s]: load=%s replaced=%s entries=%s" % [label, loaded, replaced, JSON.stringify(Journal.entries())])
 	for legacy in [{"version": 1, "flags": flags}, {"flags": flags}]:
 		write_save(legacy)
 		check(GameState.load_game(), "legacy migration")
